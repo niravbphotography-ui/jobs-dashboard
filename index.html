@@ -70,8 +70,8 @@ input:focus, select:focus { outline: none; border-color: #1A7A6E; }
 .board-link:hover { border-color: #1A7A6E; background: #EAF4F2; }
 .board-name { font-size: 13px; font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 2px; }
 .board-sub { font-size: 11px; color: #888; display: block; }
-.saved-star { color: #f59e0b; }
-.clear-api { font-size: 11px; color: #888; text-decoration: underline; cursor: pointer; margin-left: 10px; }
+.clear-api { font-size: 11px; color: rgba(255,255,255,0.7); text-decoration: underline; cursor: pointer; margin-left: 10px; }
+.info-box { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 0.75rem 1rem; font-size: 13px; color: #5d4037; margin-bottom: 1rem; }
 </style>
 </head>
 <body>
@@ -92,7 +92,7 @@ input:focus, select:focus { outline: none; border-color: #1A7A6E; }
 
   <div class="api-box" id="api-box">
     <h2>Connect Reed Jobs API</h2>
-    <p>Paste your free Reed API key below to enable live job search. Get one at <strong>reed.co.uk/developers</strong>. Your key is saved on this device only and never shared.</p>
+    <p>Paste your free Reed API key below to enable live job search. Get a free key at <strong>reed.co.uk/developers</strong>. Your key is saved on this device only.</p>
     <div class="api-row">
       <input type="password" id="api-input" placeholder="Paste your Reed API key..." />
       <button class="btn btn-primary" onclick="connectApi()">Connect</button>
@@ -186,7 +186,9 @@ input:focus, select:focus { outline: none; border-color: #1A7A6E; }
         <span id="results-summary">Select sectors and click Search Live Jobs</span>
         <span id="results-info" style="font-size:12px;color:#aaa;"></span>
       </div>
-      <div id="results"></div>
+      <div id="results">
+        <div class="empty-state"><div>🔍</div><div>Select your sectors and hit Search Live Jobs</div></div>
+      </div>
       <div class="pagination" id="pagination"></div>
     </div>
 
@@ -197,30 +199,24 @@ input:focus, select:focus { outline: none; border-color: #1A7A6E; }
 
   <div class="card">
     <h2>Search Other Job Boards</h2>
-    <div class="board-grid" id="board-grid">
+    <div class="board-grid">
       <a class="board-link" id="b-indeed" href="https://www.indeed.co.uk/jobs?q=housing&l=Leicester" target="_blank">
-        <span class="board-name">Indeed</span>
-        <span class="board-sub">General jobs</span>
+        <span class="board-name">Indeed</span><span class="board-sub">General jobs</span>
       </a>
       <a class="board-link" id="b-linkedin" href="https://www.linkedin.com/jobs/search/?keywords=housing&location=Leicester" target="_blank">
-        <span class="board-name">LinkedIn</span>
-        <span class="board-sub">Professional network</span>
+        <span class="board-name">LinkedIn</span><span class="board-sub">Professional network</span>
       </a>
       <a class="board-link" id="b-totaljobs" href="https://www.totaljobs.com/jobs/housing/in-leicester" target="_blank">
-        <span class="board-name">Totaljobs</span>
-        <span class="board-sub">General jobs</span>
+        <span class="board-name">Totaljobs</span><span class="board-sub">General jobs</span>
       </a>
       <a class="board-link" id="b-lgjobs" href="https://www.lgjobs.com/jobs?Keywords=housing&Location=Leicester" target="_blank">
-        <span class="board-name">LG Jobs</span>
-        <span class="board-sub">Council and local gov</span>
+        <span class="board-name">LG Jobs</span><span class="board-sub">Council and local gov</span>
       </a>
-      <a class="board-link" id="b-cih" href="https://www.cih.org/jobs/search?q=housing&location=Leicester" target="_blank">
-        <span class="board-name">CIH Jobs</span>
-        <span class="board-sub">Housing sector</span>
+      <a class="board-link" id="b-cih" href="https://cih.org/jobs/search?q=housing&location=Leicester" target="_blank">
+        <span class="board-name">CIH Jobs</span><span class="board-sub">Housing sector</span>
       </a>
       <a class="board-link" id="b-jobsac" href="https://www.jobs.ac.uk/search/?keywords=student+support&location=Leicester" target="_blank">
-        <span class="board-name">jobs.ac.uk</span>
-        <span class="board-sub">University roles</span>
+        <span class="board-name">jobs.ac.uk</span><span class="board-sub">University roles</span>
       </a>
     </div>
   </div>
@@ -232,7 +228,9 @@ let apiKey = localStorage.getItem('reedKey') || '';
 let savedJobs = JSON.parse(localStorage.getItem('savedJobs') || '[]');
 let currentPage = 1;
 let totalFound = 0;
-let perPage = 20;
+const perPage = 20;
+
+const PROXY = 'https://corsproxy.io/?';
 
 if (apiKey) initConnected();
 updateSavedCount();
@@ -270,7 +268,7 @@ function getKeywords() {
   const manual = document.getElementById('keywords').value.trim();
   if (manual) return manual;
   const active = Array.from(document.querySelectorAll('.tag.active')).map(t => t.dataset.kw);
-  return active.length > 0 ? active.join(' OR ') : 'housing';
+  return active.length > 0 ? active[0] : 'housing';
 }
 
 async function search(page) {
@@ -287,21 +285,29 @@ async function search(page) {
   showLoading();
   clearError();
 
-  let url = `https://www.reed.co.uk/api/1.0/search?keywords=${encodeURIComponent(kw)}&resultsToTake=${perPage}&resultsToSkip=${skip}`;
-  if (loc) url += `&locationName=${encodeURIComponent(loc)}&distancefromlocation=${dist}`;
-  if (minSal) url += `&minimumSalary=${minSal}`;
-  if (maxSal) url += `&maximumSalary=${maxSal}`;
-  if (contract !== '') url += `&permanent=${contract}`;
+  let reedUrl = `https://www.reed.co.uk/api/1.0/search?keywords=${encodeURIComponent(kw)}&resultsToTake=${perPage}&resultsToSkip=${skip}`;
+  if (loc) reedUrl += `&locationName=${encodeURIComponent(loc)}&distancefromlocation=${dist}`;
+  if (minSal) reedUrl += `&minimumSalary=${minSal}`;
+  if (maxSal) reedUrl += `&maximumSalary=${maxSal}`;
+  if (contract !== '') reedUrl += `&permanent=${contract}`;
+
+  const url = PROXY + encodeURIComponent(reedUrl);
 
   try {
     const res = await fetch(url, {
-      headers: { 'Authorization': 'Basic ' + btoa(apiKey + ':') }
+      headers: {
+        'Authorization': 'Basic ' + btoa(apiKey + ':'),
+        'x-requested-with': 'XMLHttpRequest'
+      }
     });
-    if (res.status === 401) throw new Error('Invalid API key. Please reconnect.');
-    if (!res.ok) throw new Error(`Error ${res.status} from Reed. Please try again.`);
+
+    if (res.status === 401) throw new Error('Invalid API key. Please click Change key and try again.');
+    if (!res.ok) throw new Error(`Something went wrong (${res.status}). Please try again.`);
+
     const data = await res.json();
     totalFound = data.totalResults || 0;
     let jobs = data.results || [];
+
     if (document.getElementById('remote-only').checked) {
       jobs = jobs.filter(j =>
         (j.locationName || '').toLowerCase().includes('remote') ||
@@ -309,9 +315,11 @@ async function search(page) {
         (j.jobDescription || '').toLowerCase().includes('remote')
       );
     }
+
     renderJobs(jobs, kw);
     renderPagination();
     updateBoards(kw, loc);
+
   } catch (e) {
     showError(e.message);
     document.getElementById('results').innerHTML = '';
@@ -321,7 +329,7 @@ async function search(page) {
 function renderJobs(jobs, kw) {
   const container = document.getElementById('results');
   document.getElementById('results-summary').textContent = `${totalFound.toLocaleString()} jobs found for "${kw}"`;
-  document.getElementById('results-info').textContent = `Page ${currentPage} of ${Math.ceil(totalFound / perPage)}`;
+  document.getElementById('results-info').textContent = totalFound > 0 ? `Page ${currentPage} of ${Math.ceil(totalFound / perPage)}` : '';
 
   if (jobs.length === 0) {
     container.innerHTML = `<div class="empty-state"><div>🔍</div><div>No jobs found. Try different keywords or broaden your filters.</div></div>`;
@@ -332,11 +340,12 @@ function renderJobs(jobs, kw) {
     const sal = job.minimumSalary && job.maximumSalary
       ? `£${Math.round(job.minimumSalary / 1000)}k - £${Math.round(job.maximumSalary / 1000)}k`
       : job.minimumSalary ? `From £${Math.round(job.minimumSalary / 1000)}k` : 'Salary not listed';
-    const isRemote = (job.locationName || '').toLowerCase().includes('remote') || (job.jobDescription || '').toLowerCase().includes('remote working');
+    const isRemote = (job.locationName || '').toLowerCase().includes('remote');
     const isHybrid = (job.jobDescription || '').toLowerCase().includes('hybrid');
     const posted = job.date ? new Date(job.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
     const isSaved = savedJobs.some(s => s.jobId === job.jobId);
-    const desc = (job.jobDescription || '').replace(/<[^>]+>/g, '').substring(0, 180);
+    const desc = (job.jobDescription || '').replace(/<[^>]+>/g, '').substring(0, 200);
+    const jobJson = JSON.stringify(job).replace(/"/g, '&quot;');
 
     return `<div class="job-card">
       <a class="job-title" href="https://www.reed.co.uk/jobs/${job.jobId}" target="_blank">${job.jobTitle || 'Job'}</a>
@@ -347,12 +356,12 @@ function renderJobs(jobs, kw) {
         ${isRemote ? '<span class="badge b-remote">Remote</span>' : ''}
         ${isHybrid ? '<span class="badge b-remote">Hybrid</span>' : ''}
         ${job.contractType ? `<span class="badge b-type">${job.contractType}</span>` : ''}
-        ${posted ? `<span class="badge b-date">${posted}</span>` : ''}
+        ${posted ? `<span class="badge b-date">Posted ${posted}</span>` : ''}
       </div>
       <div class="job-desc">${desc}...</div>
       <div class="job-actions">
         <a href="https://www.reed.co.uk/jobs/${job.jobId}" target="_blank" class="btn btn-primary btn-sm">View Job</a>
-        <button class="btn btn-ghost btn-sm" onclick="toggleSave(${JSON.stringify(job).replace(/"/g, '&quot;')})" id="save-${job.jobId}">
+        <button class="btn btn-ghost btn-sm" onclick='toggleSave(${jobJson})' id="save-${job.jobId}">
           ${isSaved ? 'Saved' : 'Save'}
         </button>
       </div>
@@ -368,11 +377,11 @@ function renderPagination() {
   const start = Math.max(1, currentPage - 2);
   const end = Math.min(total, currentPage + 2);
   if (start > 1) html += `<button class="pg" onclick="search(1)">1</button>`;
-  if (start > 2) html += `<span style="padding:6px 4px;color:#aaa;">...</span>`;
+  if (start > 2) html += `<span style="padding:6px 4px;color:#aaa">...</span>`;
   for (let i = start; i <= end; i++) {
     html += `<button class="pg ${i === currentPage ? 'active' : ''}" onclick="search(${i})">${i}</button>`;
   }
-  if (end < total - 1) html += `<span style="padding:6px 4px;color:#aaa;">...</span>`;
+  if (end < total - 1) html += `<span style="padding:6px 4px;color:#aaa">...</span>`;
   if (end < total) html += `<button class="pg" onclick="search(${total})">${total}</button>`;
   pg.innerHTML = html;
 }
@@ -403,6 +412,7 @@ function renderSaved() {
     const sal = job.minimumSalary && job.maximumSalary
       ? `£${Math.round(job.minimumSalary / 1000)}k - £${Math.round(job.maximumSalary / 1000)}k`
       : job.minimumSalary ? `From £${Math.round(job.minimumSalary / 1000)}k` : 'Salary not listed';
+    const jobJson = JSON.stringify(job).replace(/"/g, '&quot;');
     return `<div class="job-card">
       <a class="job-title" href="https://www.reed.co.uk/jobs/${job.jobId}" target="_blank">${job.jobTitle}</a>
       <div class="job-company">${job.employerName || ''}</div>
@@ -412,7 +422,7 @@ function renderSaved() {
       </div>
       <div class="job-actions">
         <a href="https://www.reed.co.uk/jobs/${job.jobId}" target="_blank" class="btn btn-primary btn-sm">View Job</a>
-        <button class="btn btn-ghost btn-sm" onclick="toggleSave(${JSON.stringify(job).replace(/"/g, '&quot;')})">Remove</button>
+        <button class="btn btn-ghost btn-sm" onclick='toggleSave(${jobJson})'>Remove</button>
       </div>
     </div>`;
   }).join('');
@@ -435,7 +445,7 @@ function updateBoards(kw, loc) {
   const l = encodeURIComponent(loc || 'Leicester');
   document.getElementById('b-indeed').href = `https://www.indeed.co.uk/jobs?q=${q}&l=${l}`;
   document.getElementById('b-linkedin').href = `https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}`;
-  document.getElementById('b-totaljobs').href = `https://www.totaljobs.com/jobs/${encodeURIComponent(kw.split(' ')[0])}/in-${encodeURIComponent(loc || 'leicester')}`;
+  document.getElementById('b-totaljobs').href = `https://www.totaljobs.com/jobs/${q}/in-${l}`;
   document.getElementById('b-lgjobs').href = `https://www.lgjobs.com/jobs?Keywords=${q}&Location=${l}`;
   document.getElementById('b-cih').href = `https://cih.org/jobs/search?q=${q}&location=${l}`;
   document.getElementById('b-jobsac').href = `https://www.jobs.ac.uk/search/?keywords=${q}&location=${l}`;
