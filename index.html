@@ -73,6 +73,8 @@ input:focus, select:focus { outline: none; border-color: #1A7A6E; }
 .board-link:hover { border-color: #1A7A6E; background: #EAF4F2; }
 .board-name { font-size: 13px; font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 2px; }
 .board-sub { font-size: 11px; color: #888; display: block; }
+.btn-claude { background: #7c3aed; color: white; }
+.btn-claude:hover { opacity: 0.85; }
 .clear-api { font-size: 11px; color: rgba(255,255,255,0.7); text-decoration: underline; cursor: pointer; margin-left: 10px; }
 .fav-strip { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #b45309; margin-bottom: 10px; }
 </style>
@@ -428,6 +430,7 @@ function jobCardHtml(job, showRemove) {
     <div class="job-actions">
       <a href="${url}" target="_blank" class="btn btn-primary btn-sm">View Job</a>
       <button class="btn btn-ghost btn-sm" onclick='toggleSave(${jobJson})' id="save-${job.jobId}">${isSaved ? 'Saved' : 'Save'}</button>
+      <button class="btn btn-claude btn-sm" onclick='applyWithClaude(${jobJson})'>Apply with Claude</button>
       ${showRemove ? `<button class="btn btn-ghost btn-sm" onclick='toggleSave(${jobJson})'>Remove</button>` : ''}
     </div>
   </div>`;
@@ -544,6 +547,33 @@ function clearResults() {
 
 function showError(msg) {
   document.getElementById('error-box').innerHTML = `<div class="error-box">${msg}</div>`;
+}
+
+function applyWithClaude(job) {
+  const sal = job.minimumSalary && job.maximumSalary
+    ? `£${Math.round(job.minimumSalary / 1000)}k - £${Math.round(job.maximumSalary / 1000)}k`
+    : job.minimumSalary ? `From £${Math.round(job.minimumSalary / 1000)}k` : 'Not specified';
+  const url = jobUrl(job);
+  const desc = (job.jobDescription || '').replace(/<[^>]+>/g, '').substring(0, 800);
+
+  const prompt = `Hi Claude, I found a job I want to apply for. Can you help me tailor my CV and write a cover letter for it?
+
+Job Title: ${job.jobTitle}
+Company: ${job.employerName || 'Not specified'}
+Location: ${job.locationName || 'Not specified'}
+Salary: ${sal}
+Job Link: ${url}
+
+Job Description:
+${desc}
+
+Please:
+1. Tell me how well my background matches this role
+2. Suggest how to tailor my CV profile for this specific job
+3. Write a tailored cover letter for this application`;
+
+  const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
+  window.open(claudeUrl, '_blank');
 }
 
 function clearError() {
