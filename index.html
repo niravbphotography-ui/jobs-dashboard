@@ -393,7 +393,19 @@ function jobCardHtml(job, showRemove) {
     : job.minimumSalary ? `From £${Math.round(job.minimumSalary / 1000)}k` : 'Salary not listed';
   const isRemote = (job.locationName || '').toLowerCase().includes('remote');
   const isHybrid = (job.jobDescription || '').toLowerCase().includes('hybrid');
-  const posted = job.date ? new Date(job.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+  const posted = (() => {
+    if (!job.date) return '';
+    try {
+      const d = new Date(job.date.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$3-$2-$1'));
+      if (isNaN(d.getTime())) return '';
+      const now = new Date();
+      const diff = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      if (diff < 7) return `${diff} days ago`;
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    } catch(e) { return ''; }
+  })();
   const isSaved = savedJobs.some(s => s.jobId === job.jobId);
   const isFav = favJobs.some(f => f.jobId === job.jobId);
   const desc = (job.jobDescription || '').replace(/<[^>]+>/g, '').substring(0, 200);
