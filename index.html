@@ -148,6 +148,17 @@ input:focus, select:focus { outline: none; border-color: #1A7A6E; }
           <option value="false">Contract / Temp</option>
         </select>
       </div>
+      <div>
+        <label>Date Posted</label>
+        <select id="date-posted">
+          <option value="">Any time</option>
+          <option value="1">Last 24 hours</option>
+          <option value="3">Last 3 days</option>
+          <option value="7" selected>Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+      </div>
     </div>
 
     <label style="margin-bottom: 8px;">Sectors</label>
@@ -311,6 +322,7 @@ async function search(page) {
   const maxSal = document.getElementById('max-salary').value;
   const dist = document.getElementById('distance').value;
   const contract = document.getElementById('contract').value;
+  const daysAgo = document.getElementById('date-posted').value;
   const skip = (page - 1) * perPage;
 
   showLoading();
@@ -321,6 +333,12 @@ async function search(page) {
   if (minSal) reedUrl += `&minimumSalary=${minSal}`;
   if (maxSal) reedUrl += `&maximumSalary=${maxSal}`;
   if (contract !== '') reedUrl += `&permanent=${contract}`;
+  if (daysAgo) {
+    const date = new Date();
+    date.setDate(date.getDate() - parseInt(daysAgo));
+    const formatted = date.toISOString().split('T')[0];
+    reedUrl += `&postedByRecruiters=true&minimumDate=${formatted}`;
+  }
 
   const url = PROXY + encodeURIComponent(reedUrl);
 
